@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from twikit import Client
 from prettytable import PrettyTable  # 用于终端表格输出
+from tqdm import tqdm  # 进度条
 
 COOKIES_FILE = "cookies.json"
 USER_LIST_FILE = "x_user_list.txt"
@@ -78,7 +79,7 @@ async def login():
     return client
 
 async def main():
-    """主逻辑：登录 -> 读取用户列表 -> 获取状态 -> 输出表格 -> 保存 CSV"""
+    """主逻辑：登录 -> 读取用户列表 -> 获取状态 -> 输出表格 -> 统计用户数 -> 保存 CSV"""
     if not os.path.exists(COOKIES_FILE):
         print(f"❌ Cookie 文件未找到: {COOKIES_FILE}，请先手动登录 Twitter 并导出 cookies.json")
         return
@@ -98,7 +99,8 @@ async def main():
     table = PrettyTable(["用户名", "昵称", "状态", "是否机器人", "关注者数", "发文数", "封禁原因", "最新推文 (UTC+8)"])
     table.align = "l"
 
-    for user in users:
+    # 进度条
+    for user in tqdm(users, desc="查询用户状态", unit="个"):
         result = await get_user_status(client, user)
         results.append(result)
         table.add_row(result)
@@ -109,10 +111,13 @@ async def main():
     # 输出表格到终端
     print(table)
 
+    # 统计用户数量
+    print(f"\n📊 总共有：{len(users)} 个账号已绑定\n")
+
     # 保存到 CSV
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["用户名", "昵称", "状态", "是否机器人", "关注者数", "发文数", "封禁原因", "最新推文时间 (UTC+8)"])
+        writer.writerow(["用户名", "昵称", "状态", "是否机器人", "关注者数", "发文数", "封禁原因", "最新推文 (UTC+8)"])
         writer.writerows(results)
 
     print(f"🎉 数据已保存至 {OUTPUT_CSV}")
